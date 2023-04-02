@@ -5,20 +5,28 @@ import "./App.css";
 
 const generator = rough.generator();
 
+const properties = {
+  FILL: {
+    label: "fill",
+    values: ["green", "red", "blue"],
+  },
+  STROKE: {
+    label: "stroke",
+    values: ["green", "red", "blue"],
+  },
+};
 const shapes = {
   LINE: "LINE",
   RECTANGLE: "RECTANGLE",
   CIRCLE: "CIRCLE",
 };
-const canvasOptions = {
-  roughness: 0,
-  bowing: 0,
-};
-function createElement({ startX, startY, endX, endY, type }) {
+const defaultOptions = {};
+function createElement({ startX, startY, endX, endY, type, options }) {
   let element = null;
+  const calculatedOptions = options ? options : defaultOptions;
   switch (type) {
     case shapes.LINE: {
-      element = generator.line(startX, startY, endX, endY, canvasOptions);
+      element = generator.line(startX, startY, endX, endY, calculatedOptions);
       break;
     }
     case shapes.RECTANGLE: {
@@ -27,14 +35,14 @@ function createElement({ startX, startY, endX, endY, type }) {
         startY,
         endX - startX,
         endY - startY,
-        canvasOptions
+        calculatedOptions
       );
       break;
     }
     case shapes.CIRCLE: {
       let diameter =
         Math.sqrt(Math.pow(startX - endX, 2) + Math.pow(startY - endY, 2)) * 2;
-      element = generator.circle(startX, startY, diameter, canvasOptions);
+      element = generator.circle(startX, startY, diameter, calculatedOptions);
       break;
     }
     default:
@@ -46,7 +54,7 @@ function createElement({ startX, startY, endX, endY, type }) {
 function App() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [elements, setElements] = useState([]);
-
+  const [options, setOptions] = useState(defaultOptions);
   const [shape, setShape] = useState(shapes.LINE);
   useLayoutEffect(() => {
     const canvas = document.querySelector("canvas");
@@ -66,6 +74,7 @@ function App() {
       endX: event.clientX,
       endY: event.clientY,
       type: shape,
+      options,
     });
     setElements((p) => [...p, newElement]);
   }
@@ -80,6 +89,7 @@ function App() {
       endX: event.clientX,
       endY: event.clientY,
       type: shape,
+      options,
     });
     const elementsCopy = [...elements];
     elementsCopy[index] = element;
@@ -108,8 +118,37 @@ function App() {
             {value}
           </button>
         ))}
+        {Object.entries(properties).map(([key, value]) => {
+          const dropDown = (
+            <span key={value.label}>
+              <label style={{ color: "white" }} htmlFor={value.label}>
+                {value.label}
+              </label>
+              <select
+                id={value.label}
+                onChange={(e) =>
+                  setOptions((p) => ({ ...p, [value.label]: e.target.value }))
+                }
+              >
+                {value.values.map((color) => (
+                  <option key={color}>{color}</option>
+                ))}
+              </select>
+            </span>
+          );
+          return dropDown;
+        })}
         <p style={{ marginInline: "auto 50px", color: "white" }}>
-          Drawing {shape}
+          Drawing {shape} -
+          <>
+            {Object.entries(options).map(([key, value], index) => {
+              return (
+                <span key={key}>{`${key.toUpperCase()} ${value} ${
+                  Object.entries(options).length - 1 === index ? "" : "-"
+                }`}</span>
+              );
+            })}
+          </>
         </p>
       </div>
       <canvas

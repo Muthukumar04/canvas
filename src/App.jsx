@@ -8,46 +8,31 @@ const generator = rough.generator();
 const shapes = {
   LINE: "LINE",
   RECTANGLE: "RECTANGLE",
-  CIRCLE: "CIRCLE",
 };
-const canvasOptions = {
-  roughness: 0,
-  bowing: 0,
-};
-function createElement({ startX, startY, endX, endY, type }) {
+
+function createElement({ x1, y1, x2, y2, type }) {
   let element = null;
   switch (type) {
     case shapes.LINE: {
-      element = generator.line(startX, startY, endX, endY, canvasOptions);
+      element = generator.line(x1, y1, x2, y2);
       break;
     }
     case shapes.RECTANGLE: {
-      element = generator.rectangle(
-        startX,
-        startY,
-        endX - startX,
-        endY - startY,
-        canvasOptions
-      );
+      element = generator.rectangle(x1, y1, x2 - x1, y2 - y1);
       break;
     }
-    case shapes.CIRCLE: {
-      let diameter =
-        Math.sqrt(Math.pow(startX - endX, 2) + Math.pow(startY - endY, 2)) * 2;
-      element = generator.circle(startX, startY, diameter, canvasOptions);
-      break;
-    }
+
     default:
       throw new Error("Invalid shape type");
   }
-  return { startX, startY, endX, endY, element };
+  return { x1, y1, x2, y2, element };
 }
 
 function App() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [elements, setElements] = useState([]);
-
   const [shape, setShape] = useState(shapes.LINE);
+
   useLayoutEffect(() => {
     const canvas = document.querySelector("canvas");
     const canvasCtx = canvas.getContext("2d");
@@ -61,10 +46,10 @@ function App() {
   function onMouseDownHandler(event) {
     setIsDrawing(true);
     const newElement = createElement({
-      startX: event.clientX,
-      startY: event.clientY,
-      endX: event.clientX,
-      endY: event.clientY,
+      x1: event.clientX,
+      y1: event.clientY,
+      x2: event.clientX,
+      y2: event.clientY,
       type: shape,
     });
     setElements((p) => [...p, newElement]);
@@ -73,12 +58,12 @@ function App() {
   function onMouseMoveHandler(event) {
     if (!isDrawing) return;
     const index = elements.length - 1;
-    const currnet = elements[index];
+    const currentElement = elements[index];
     const element = createElement({
-      startX: currnet.startX,
-      startY: currnet.startY,
-      endX: event.clientX,
-      endY: event.clientY,
+      x1: currentElement.x1,
+      y1: currentElement.y1,
+      x2: event.clientX,
+      y2: event.clientY,
       type: shape,
     });
     const elementsCopy = [...elements];

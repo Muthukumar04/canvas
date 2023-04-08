@@ -1,23 +1,29 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useReducer, useState } from "react";
 import rough from "roughjs";
 
 import "./App.css";
 
 const generator = rough.generator();
 
+const actions = {
+  drawing: "d",
+  selection: "s",
+  none: "n",
+};
 const shapes = {
-  LINE: "LINE",
-  RECTANGLE: "RECTANGLE",
+  line: "l",
+  rectangle: "r",
+  none: "n",
 };
 
-function createElement({ x1, y1, x2, y2, type }) {
+function createElement(x1, y1, x2, y2, type) {
   let element = null;
   switch (type) {
-    case shapes.LINE: {
+    case shapes.line: {
       element = generator.line(x1, y1, x2, y2);
       break;
     }
-    case shapes.RECTANGLE: {
+    case shapes.rectangle: {
       element = generator.rectangle(x1, y1, x2 - x1, y2 - y1);
       break;
     }
@@ -28,10 +34,24 @@ function createElement({ x1, y1, x2, y2, type }) {
   return { x1, y1, x2, y2, element };
 }
 
+const defaultAction = { action: actions.none };
+
+function actionReducer(state, action) {
+  switch (action.type) {
+    case actions.drawing: {
+      return { action: action.type, shape: action.shape };
+    }
+    case actions.selection:
+      return { action: action.type };
+    default:
+      return defaultAction;
+  }
+}
+
 function App() {
-  const [isDrawing, setIsDrawing] = useState(false);
+  const [action, dispatch] = useReducer(actionReducer, defaultAction);
   const [elements, setElements] = useState([]);
-  const [shape, setShape] = useState(shapes.LINE);
+  const [selectedElement, setSelectedElement] = useState(null);
 
   useLayoutEffect(() => {
     const canvas = document.querySelector("canvas");
@@ -43,36 +63,38 @@ function App() {
     });
   }, [elements]);
 
-  function onMouseDownHandler(event) {
-    setIsDrawing(true);
-    const newElement = createElement({
-      x1: event.clientX,
-      y1: event.clientY,
-      x2: event.clientX,
-      y2: event.clientY,
-      type: shape,
-    });
-    setElements((p) => [...p, newElement]);
+  function mouseDown(e) {
+    if (action.action === actions.drawing && action.shape) {
+      const { clientX, clientY } = e;
+      const createdElement = createElement(
+        clientX,
+        clientY,
+        clientX,
+        clientY,
+        action.shape
+      );
+      setElements((p) => [...p, createdElement]);
+      setSelectedElement(createdElement);
+    }
   }
 
-  function onMouseMoveHandler(event) {
-    if (!isDrawing) return;
-    const index = elements.length - 1;
-    const currentElement = elements[index];
-    const element = createElement({
-      x1: currentElement.x1,
-      y1: currentElement.y1,
-      x2: event.clientX,
-      y2: event.clientY,
-      type: shape,
-    });
-    const elementsCopy = [...elements];
-    elementsCopy[index] = element;
-    setElements(elementsCopy);
+  function mouseMove(e) {
+    const { clientX, clientY } = e;
+    if (action.action === actions.drawing && action.shape && selectedElement) {
+      const x2 = clientX,
+        y2 = clientY;
+      const index = elements.length - 1;
+      const currentElement = elements[index];
+      const { x1, y1 } = currentElement;
+      const createdElement = createElement(x1, y1, x2, y2, action.shape);
+      const updatedElements = [...elements];
+      updatedElements[index] = createdElement;
+      setElements(updatedElements);
+    }
   }
 
-  function onMouseUpHandler(event) {
-    setIsDrawing(false);
+  function mouseUp() {
+    setSelectedElement(null);
   }
 
   return (
@@ -88,22 +110,35 @@ function App() {
           width: "100%",
         }}
       >
-        {Object.entries(shapes).map(([key, value]) => (
-          <button key={value} onClick={() => setShape(value)}>
-            {value}
-          </button>
-        ))}
-        <p style={{ marginInline: "auto 50px", color: "white" }}>
-          Drawing {shape}
-        </p>
+        <button
+          onClick={() => {
+            dispatch(actions.selection);
+          }}
+        >
+          Selection
+        </button>
+        <button
+          onClick={() => {
+            dispatch({ type: actions.drawing, shape: shapes.line });
+          }}
+        >
+          Line
+        </button>
+        <button
+          onClick={() => {
+            dispatch({ type: actions.drawing, shape: shapes.rectangle });
+          }}
+        >
+          Rectange
+        </button>
       </div>
       <canvas
         width={window.innerWidth}
         height={window.innerHeight}
         style={{ backgroundColor: "lightblue" }}
-        onMouseDown={onMouseDownHandler}
-        onMouseMove={onMouseMoveHandler}
-        onMouseUp={onMouseUpHandler}
+        onMouseDown={mouseDown}
+        onMouseMove={mouseMove}
+        onMouseUp={mouseUp}
       ></canvas>
     </>
   );

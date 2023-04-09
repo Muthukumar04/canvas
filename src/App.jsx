@@ -23,6 +23,9 @@ const touchPoints = {
   bl: "bl",
   br: "br",
   inside: "inside",
+  online: "online",
+  top: "top",
+  bottom: "bottom",
 };
 function createElement(x1, y1, x2, y2, type, id) {
   let element = null;
@@ -60,7 +63,11 @@ function getPositionWithinElement(x, y, element) {
         { x, y },
         { x: element.x2, y: element.y2 }
       );
-      return ac + cb <= ab + 10;
+      const isOnline = ac + cb <= ab + 10 && touchPoints.online;
+      const isTop = isNear(x, y, element.x1, element.y1, touchPoints.top);
+      const isBottom = isNear(x, y, element.x2, element.y2, touchPoints.bottom);
+
+      return isTop || isBottom || isOnline;
     }
     case shapes.rectangle: {
       const { x1, x2, y1, y2 } = element;
@@ -92,7 +99,20 @@ function updateElement(x, y, element, mode) {
   let { offsetX, offsetY } = element;
   if (actions.moving === mode) {
     switch (element.type) {
-      case shapes.line:
+      case shapes.line: {
+        const { x1, x2, y1, y2 } = element;
+        const newX1 = x - offsetX;
+        const newY1 = y - offsetY;
+        const newX2 = x2 + x - x1 - offsetX;
+        const newY2 = y2 + y - y1 - offsetY;
+        return {
+          element: generator.line(newX1, newY1, newX2, newY2),
+          x1: newX1,
+          x2: newX2,
+          y1: newY1,
+          y2: newY2,
+        };
+      }
       case shapes.rectangle: {
         const width = Math.abs(element.x1 - element.x2);
         const height = Math.abs(element.y1 - element.y2);
@@ -100,79 +120,111 @@ function updateElement(x, y, element, mode) {
           y1 = y - offsetY,
           x2 = width + x1,
           y2 = height + y1;
-        updatedElement =
-          shapes.rectangle === element.type
-            ? generator.rectangle(x1, y1, width, height)
-            : generator.line(x1, y1, x2, y2);
+        updatedElement = generator.rectangle(x1, y1, width, height);
+
         return { element: updatedElement, x1, x2, y1, y2 };
       }
       default:
         throw new Error(`Invalid type - ${element.type} for ${mode}`);
     }
   } else if (actions.resizing === mode) {
-    if (element.type === shapes.rectangle) {
-      let { x1, x2, y1, y2 } = element;
-      if (touchPoints.br === element.cursorPoint) {
-        console.log("BR");
-        const newX2 = x;
-        const newY2 = y;
-        const width = Math.abs(x1 - newX2);
-        const height = Math.abs(y1 - newY2);
-        let updatedElement = generator.rectangle(x1, y1, width, height);
-
-        return { element: updatedElement, x1, x2: newX2, y1, y2: newY2 };
-      } else if (touchPoints.bl === element.cursorPoint) {
-        console.log("BL");
-        const newX1 = x;
-        const newX2 = x2;
-        const newY1 = y1;
-        const newY2 = y;
-        const width = Math.abs(newX1 - newX2);
-        const height = Math.abs(newY1 - newY2);
-        let updatedElement = generator.rectangle(newX1, newY1, width, height);
-
-        return {
-          element: updatedElement,
-          x1: newX1,
-          x2: newX2,
-          y1: newY1,
-          y2: newY2,
-        };
-      } else if (touchPoints.tr === element.cursorPoint) {
-        console.log("TR");
-        const newX1 = x1;
-        const newX2 = x;
-        const newY1 = y;
-        const newY2 = y2;
-        const width = Math.abs(newX1 - newX2);
-        const height = Math.abs(newY1 - newY2);
-        let updatedElement = generator.rectangle(newX1, newY1, width, height);
-
-        return {
-          element: updatedElement,
-          x1: newX1,
-          x2: newX2,
-          y1: newY1,
-          y2: newY2,
-        };
-      } else if (touchPoints.tl === element.cursorPoint) {
-        console.log("TR");
-        const newX1 = x;
-        const newX2 = x2;
-        const newY1 = y;
-        const newY2 = y2;
-        const width = Math.abs(newX1 - newX2);
-        const height = Math.abs(newY1 - newY2);
-        let updatedElement = generator.rectangle(newX1, newY1, width, height);
-
-        return {
-          element: updatedElement,
-          x1: newX1,
-          x2: newX2,
-          y1: newY1,
-          y2: newY2,
-        };
+    switch (element.type) {
+      case shapes.line: {
+        let { x1, x2, y1, y2 } = element;
+        if (touchPoints.top === element.cursorPoint) {
+          console.log("Top");
+          const newX1 = x;
+          const newX2 = x2;
+          const newY1 = y;
+          const newY2 = y2;
+          return {
+            element: generator.line(newX1, newY1, newX2, newY2),
+            x1: newX1,
+            x2: newX2,
+            y1: newY1,
+            y2: newY2,
+          };
+        } else if (touchPoints.bottom === element.cursorPoint) {
+          console.log("Bottom");
+          const newX1 = x1;
+          const newX2 = x;
+          const newY1 = y1;
+          const newY2 = y;
+          return {
+            element: generator.line(newX1, newY1, newX2, newY2),
+            x1: newX1,
+            x2: newX2,
+            y1: newY1,
+            y2: newY2,
+          };
+        }
       }
+      case shapes.rectangle: {
+        let { x1, x2, y1, y2 } = element;
+        if (touchPoints.br === element.cursorPoint) {
+          console.log("BR");
+          const newX2 = x;
+          const newY2 = y;
+          const width = Math.abs(x1 - newX2);
+          const height = Math.abs(y1 - newY2);
+          let updatedElement = generator.rectangle(x1, y1, width, height);
+
+          return { element: updatedElement, x1, x2: newX2, y1, y2: newY2 };
+        } else if (touchPoints.bl === element.cursorPoint) {
+          console.log("BL");
+          const newX1 = x;
+          const newX2 = x2;
+          const newY1 = y1;
+          const newY2 = y;
+          const width = Math.abs(newX1 - newX2);
+          const height = Math.abs(newY1 - newY2);
+          let updatedElement = generator.rectangle(newX1, newY1, width, height);
+
+          return {
+            element: updatedElement,
+            x1: newX1,
+            x2: newX2,
+            y1: newY1,
+            y2: newY2,
+          };
+        } else if (touchPoints.tr === element.cursorPoint) {
+          console.log("TR");
+          const newX1 = x1;
+          const newX2 = x;
+          const newY1 = y;
+          const newY2 = y2;
+          const width = Math.abs(newX1 - newX2);
+          const height = Math.abs(newY1 - newY2);
+          let updatedElement = generator.rectangle(newX1, newY1, width, height);
+
+          return {
+            element: updatedElement,
+            x1: newX1,
+            x2: newX2,
+            y1: newY1,
+            y2: newY2,
+          };
+        } else if (touchPoints.tl === element.cursorPoint) {
+          console.log("TR");
+          const newX1 = x;
+          const newX2 = x2;
+          const newY1 = y;
+          const newY2 = y2;
+          const width = Math.abs(newX1 - newX2);
+          const height = Math.abs(newY1 - newY2);
+          let updatedElement = generator.rectangle(newX1, newY1, width, height);
+
+          return {
+            element: updatedElement,
+            x1: newX1,
+            x2: newX2,
+            y1: newY1,
+            y2: newY2,
+          };
+        }
+      }
+      default:
+        throw new Error("Invalid shape for updating element " + element.type);
     }
   }
 }
@@ -219,14 +271,17 @@ function App() {
         cursorPoint = getPositionWithinElement(clientX, clientY, element);
         if (cursorPoint) {
           switch (cursorPoint) {
-            case touchPoints.inside: {
+            case touchPoints.inside:
+            case touchPoints.online: {
               dispatch({ type: actions.moving });
               break;
             }
             case touchPoints.tl:
             case touchPoints.tr:
             case touchPoints.bl:
-            case touchPoints.br: {
+            case touchPoints.br:
+            case touchPoints.top:
+            case touchPoints.bottom: {
               dispatch({ type: actions.resizing });
               break;
             }
@@ -328,7 +383,7 @@ function App() {
   }
 
   function mouseUp() {
-    if (selectedElement) {
+    if (true) {
       const updatedElement = updateCoordinates(elements[elements.length - 1]);
       console.log(updatedElement, selectedElement);
       setElements((p) =>

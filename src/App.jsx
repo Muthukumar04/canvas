@@ -94,7 +94,22 @@ function getPositionWithinElement(x, y, element) {
       return tl || tr || bl || br || isInside;
     }
     case shapes.text: {
-      return false;
+      const { x1, y1 } = element;
+      const width = document
+        .querySelector("canvas")
+        .getContext("2d")
+        .measureText(element.options.value).width;
+      const height = 15;
+      const x2 = x1 + width;
+      const y2 = y1 + height;
+      const minX = Math.min(x1, x2);
+      const minY = Math.min(y1, y2);
+      const maxX = Math.max(x1, x2);
+      const maxY = Math.max(y1, y2);
+      const isInside =
+        x >= minX && x <= maxX && y >= minY && y <= maxY && touchPoints.inside;
+
+      return isInside;
     }
     default:
       throw new Error(`${type} not exist`);
@@ -134,6 +149,20 @@ function updateElement(x, y, element, mode) {
           x2 = width + x1,
           y2 = height + y1;
         updatedElement = generator.rectangle(x1, y1, width, height);
+
+        return { element: updatedElement, x1, x2, y1, y2 };
+      }
+      case shapes.text: {
+        let { x1, y1 } = element;
+        const width = document
+          .querySelector("canvas")
+          .getContext("2d")
+          .measureText(element.options.value).width;
+        const height = 15;
+        const x2 = x1 + width;
+        const y2 = y1 + height;
+
+        (x1 = x - offsetX), (y1 = y - offsetY), (updatedElement = null);
 
         return { element: updatedElement, x1, x2, y1, y2 };
       }
@@ -236,6 +265,7 @@ function updateElement(x, y, element, mode) {
           };
         }
       }
+
       default:
         throw new Error("Invalid shape for updating element " + element.type);
     }
@@ -428,6 +458,8 @@ function App() {
 
         return createElement(x1, y1, x2, y2, element.type, element.id);
       }
+      case shapes.text:
+        return element;
       default:
         throw new Error("Invalid type" + element.type);
     }

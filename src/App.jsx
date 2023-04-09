@@ -135,9 +135,7 @@ function App() {
       if (selectedElement) {
         const offsetX = clientX - selectedElement.x1,
           offsetY = clientY - selectedElement.y1;
-
         setSelectedElement({ ...selectedElement, offsetX, offsetY });
-        // debugger;
       }
     } else if (action.action === actions.drawing && action.shape) {
       const id = elements.length;
@@ -191,16 +189,12 @@ function App() {
       case shapes.line:
       case shapes.rectangle: {
         let { x1, x2, y1, y2 } = element;
-        console.log(`((${x1}, ${y1} ),( ${x2}, ${y2}))`);
+
         if (x1 > x2 || y1 > y2) {
-          let t = x1;
-          x1 = x2;
-          x2 = t;
-          t = y1;
-          y1 = y2;
-          y2 = t;
+          [x1, x2] = [x2, x1];
+          [y1, y2] = [y2, y1];
         }
-        console.log(`((${x1}, ${y1} ),( ${x2}, ${y2}))`);
+
         return createElement(x1, y1, x2, y2, element.type, element.id);
       }
       default:

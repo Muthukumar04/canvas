@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useReducer, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import rough from "roughjs";
 
 import "./App.css";
@@ -11,10 +17,12 @@ const actions = {
   resizing: "resizing",
   moving: "moving",
   none: "none",
+  writing: "writing",
 };
 const shapes = {
   line: "line",
   rectangle: "rectangle",
+  text: "text",
   none: "none",
 };
 const touchPoints = {
@@ -27,7 +35,7 @@ const touchPoints = {
   top: "top",
   bottom: "bottom",
 };
-function createElement(x1, y1, x2, y2, type, id) {
+function createElement(x1, y1, x2, y2, type, id, options) {
   let element = null;
   switch (type) {
     case shapes.line: {
@@ -38,11 +46,13 @@ function createElement(x1, y1, x2, y2, type, id) {
       element = generator.rectangle(x1, y1, x2 - x1, y2 - y1);
       break;
     }
-
+    case shapes.text: {
+      break;
+    }
     default:
       throw new Error("Invalid shape type");
   }
-  return { x1, y1, x2, y2, element, type, id };
+  return { x1, y1, x2, y2, element, type, id, options };
 }
 
 function distanceBetweenPoints(A, B) {
@@ -82,6 +92,9 @@ function getPositionWithinElement(x, y, element) {
       const bl = isNear(x, y, x1, y2, touchPoints.bl);
       const br = isNear(x, y, x2, y2, touchPoints.br);
       return tl || tr || bl || br || isInside;
+    }
+    case shapes.text: {
+      return false;
     }
     default:
       throw new Error(`${type} not exist`);
@@ -243,8 +256,11 @@ function actionReducer(state, action) {
       return { action: action.type };
     case actions.resizing:
       return { action: action.type };
-    default:
-      throw new Error("Invalid action type" + action.type);
+    case actions.writing:
+      return { action: action.type };
+    default: {
+      return { action: actions.none };
+    }
   }
 }
 
@@ -252,16 +268,49 @@ function App() {
   const [action, dispatch] = useReducer(actionReducer, defaultAction);
   const [elements, setElements] = useState([]);
   const [selectedElement, setSelectedElement] = useState(null);
+  const [showTextArea, setShowTextArea] = useState(false);
+  const [textAreaPosition, setTextAreaPosition] = useState(null);
 
+  const textareaRef = useRef();
+  let cursorType = "default";
+  switch (selectedElement?.cursorPoint) {
+    case touchPoints.inside:
+    case touchPoints.online: {
+      cursorType = "all-scroll";
+      break;
+    }
+    case touchPoints.bl:
+    case touchPoints.tr:
+    case touchPoints.top: {
+      cursorType = "nesw-resize";
+      break;
+    }
+    case touchPoints.br:
+    case touchPoints.tl:
+    case touchPoints.bottom: {
+      cursorType = "nwse-resize";
+      break;
+    }
+    default:
+      cursorType = "default";
+  }
   useLayoutEffect(() => {
     const canvas = document.querySelector("canvas");
     const canvasCtx = canvas.getContext("2d");
     canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
     const roughCanvas = rough.canvas(canvas);
-    elements.forEach(({ element }) => {
-      roughCanvas.draw(element);
+    elements.forEach(({ element, type, options, x1, y1 }) => {
+      if (type === shapes.text) {
+        canvasCtx.textBaseline = "top";
+        canvasCtx.font = "15px Inter";
+        canvasCtx.fillText(options.value, x1, y1);
+      } else roughCanvas.draw(element);
     });
   }, [elements]);
+
+  useEffect(() => {
+    setTimeout(() => textareaRef.current?.focus(), 10);
+  }, [showTextArea]);
 
   function mouseDown(e) {
     const { clientX, clientY } = e;
@@ -312,9 +361,11 @@ function App() {
         action.shape,
         id
       );
-
       setElements((p) => [...p, createdElement]);
       setSelectedElement(createdElement);
+    } else if (actions.writing === action.action && !showTextArea) {
+      setShowTextArea(true);
+      setTextAreaPosition({ top: clientY, left: clientX });
     }
   }
 
@@ -383,7 +434,7 @@ function App() {
   }
 
   function mouseUp() {
-    if (true) {
+    if (selectedElement) {
       const updatedElement = updateCoordinates(elements[elements.length - 1]);
       console.log(updatedElement, selectedElement);
       setElements((p) =>
@@ -398,7 +449,22 @@ function App() {
       dispatch({ type: actions.selection });
     setSelectedElement(null);
   }
+  function blurHandler(event) {
+    const textValue = textareaRef.current.value;
+    const createdElement = createElement(
+      textAreaPosition.left,
+      textAreaPosition.top,
+      null,
+      null,
+      shapes.text,
+      elements.length,
+      { value: textValue }
+    );
 
+    setElements((p) => [...p, createdElement]);
+
+    setShowTextArea(false);
+  }
   return (
     <>
       <div
@@ -433,18 +499,39 @@ function App() {
         >
           Rectange
         </button>
+        <button
+          onClick={() => {
+            dispatch({ type: actions.writing });
+          }}
+        >
+          Text
+        </button>
       </div>
+      {showTextArea && (
+        <textarea
+          ref={textareaRef}
+          onBlur={blurHandler}
+          style={{
+            position: "fixed",
+
+            margin: 0,
+            padding: 0,
+            border: 0,
+            outline: 0,
+            resize: "none",
+            overflow: "hidden",
+            whiteSpace: "pre",
+            background: "transparent",
+            ...textAreaPosition,
+          }}
+        />
+      )}
       <canvas
         width={window.innerWidth}
         height={window.innerHeight}
         style={{
           backgroundColor: "lightblue",
-          cursor:
-            action.action === actions.moving
-              ? "all-scroll"
-              : action.action === actions.resizing
-              ? "nesw-resize"
-              : "default",
+          cursor: cursorType,
         }}
         onMouseDown={mouseDown}
         onMouseMove={mouseMove}
